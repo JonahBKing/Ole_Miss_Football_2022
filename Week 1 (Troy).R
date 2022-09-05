@@ -8,9 +8,22 @@ CFBD_API_KEY = "6EurqDrc/VrqE63FxvrqvMHR8sFIUBixpN8+kyGiTD1j+nmdhFVp9MQRzCncl0r"
 #schedules <-load_cfb_schedules() %>% 
 #  filter(home_id == 145 | away_id == 145)
 
-olemiss <- espn_cfb_pbp(game_id = 401403860, epa_wpa = TRUE)
+olemiss <- espn_cfb_pbp(game_id = 401403860, epa_wpa = TRUE) %>% 
+  mutate(short_playtype = case_when(pass == 1 ~ 1,
+                                    rush == 1 ~ 0,
+                                    punt == 1 ~ -1,
+                                    fg_inds == 1 ~ -1 ,
+                                    TRUE ~ -99)) %>% 
+  filter(short_playtype > -1) %>% 
+  mutate(short_playtype = case_when(short_playtype == 1 ~ "Pass",
+                                    short_playtype == 0 ~ "Rush" ,
+                                    short_playtype == -1 ~ "Kick"))
+
+unique(olemiss$pas)
 attach(olemiss)
 downspalette <- c("green" ,"blue" , "red" , "black" )
+
+playpalette <- c("blue" ,"red"  )
 
 olemiss %>% 
   filter(turnover == 0 & down == 1) %>% 
@@ -36,15 +49,6 @@ theme_football <- function (base_size = 11, base_family = "") {
 ###offense 
 olemiss %>% 
   filter(pos_team=="Ole Miss" & turnover == 0 , down != 4) %>% 
-  mutate(short_playtype = case_when(pass == 1 ~ 1,
-                                    rush == 1 ~ 0,
-                                    punt == 1 ~ -1,
-                                    fg_inds == 1 ~ -1 ,
-                                    TRUE ~ -99)) %>% 
-  filter(short_playtype > -1) %>% 
-  mutate(short_playtype = case_when(short_playtype == 1 ~ "Pass",
-                                    short_playtype == 0 ~ "Rush" ,
-                                    short_playtype == -1 ~ "Kick")) %>% 
   ggplot(aes(x=yards_to_goal , y = EPA))+
   geom_point(aes(color = as.factor(down) , shape = as.factor(short_playtype) , size = 2))+
   geom_smooth(aes(color = as.factor(down) ), se =FALSE)+
@@ -60,18 +64,9 @@ olemiss %>%
        title = 'Ole Miss EPA', subtitle = 'Week 1 VS Troy')+
   theme_football()
 
-###
+###defense
 olemiss %>% 
   filter(pos_team=="Troy" & turnover == 0 & down != 4) %>% 
-  mutate(short_playtype = case_when(pass == 1 ~ 1,
-                                    rush == 1 ~ 0,
-                                    punt == 1 ~ -1,
-                                    fg_inds == 1 ~ -1 ,
-                                    TRUE ~ -99)) %>% 
-  filter(short_playtype > -1) %>% 
-  mutate(short_playtype = case_when(short_playtype == 1 ~ "Pass",
-                                    short_playtype == 0 ~ "Rush" ,
-                                    short_playtype == -1 ~ "Kick")) %>% 
   ggplot(aes(x=yards_to_goal , y = EPA))+  
   geom_smooth(aes(color = as.factor(down)), se = FALSE )+
   geom_point(aes(color = as.factor(down) , shape = as.factor(short_playtype) , size = 2))+
@@ -86,13 +81,48 @@ olemiss %>%
   labs(x = 'Yards to Goal', y = 'Expexted Points Added', 
        title = 'Ole Miss Defense EPA', subtitle = 'Week 1 VS Troy')+
   theme_football()
-    
+
+###
+
+olemiss %>% 
+  filter(turnover == 0 & pass == 1) %>% 
+  group_by(pos_team) %>% 
+  summarise(mean_var = mean(EPA,  na.rm = TRUE))
+
+###offense play types 
+olemiss %>% 
+  filter(pos_team=="Ole Miss" & turnover == 0 , down != 4) %>% 
+  ggplot(aes(x=yards_to_goal , y = EPA))+
+  geom_point(aes(color = as.factor(short_playtype) , size = 2))+
+  geom_smooth(aes(color = as.factor(short_playtype) ), se =FALSE)+
+  annotate("text", x = 7.5 , y = -1.5 ,
+           label = paste( "Pass: .363" , "Rush: .226"  , sep = "\n"),hjust = 0 ,size =5 , fontface = "italic")+
+  scale_color_manual(name = "Play Type" , values =playpalette) +
+  guides( size = FALSE , color = guide_legend(override.aes = list(size = 5)))+
+  scale_x_reverse()+
+  geom_hline(linetype = "dashed", size = 1,   yintercept = 0)+
+  labs(x = 'Yards to Goal', y = 'Expexted Points Added', 
+       title = 'Ole Miss EPA', subtitle = 'Week 1 VS Troy')+
+  theme_football()
 
 
+### defense
+olemiss %>% 
+  filter(pos_team=="Troy" & turnover == 0 , down != 4) %>% 
+  ggplot(aes(x=yards_to_goal , y = EPA))+
+  geom_point(aes(color = as.factor(short_playtype) , size = 2))+
+  geom_smooth(aes(color = as.factor(short_playtype) ), se =FALSE)+
+  annotate("text", x = 7.5 , y = -1.5 ,
+           label = paste( "Pass: .223" , "Rush: -.117"  , sep = "\n"),hjust = 0 ,size =5 , fontface = "italic")+
+  scale_color_manual(name = "Play Type" , values =playpalette) +
+  guides( size = FALSE , color = guide_legend(override.aes = list(size = 5)))+
+  scale_x_reverse()+
+  geom_hline(linetype = "dashed", size = 1,   yintercept = 0)+
+  labs(x = 'Yards to Goal', y = 'Expexted Points Added', 
+       title = 'Ole Miss Defense EPA', subtitle = 'Week 1 VS Troy')+
+  theme_football()
 
-  
-  
-unique(olemiss$new_series)
+### pass means a pass play was called 
+#testing<- olemiss %>% 
+#  filter(pass != pass_attempt)
 
-view(olemiss %>% 
-       filter(new_series == 1)) 
